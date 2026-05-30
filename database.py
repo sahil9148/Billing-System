@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 from config import DATABASE_PATH
 
 # PostgreSQL Support for production cloud hosting (Vercel/Render/Railway)
-DATABASE_URL = os.environ.get('DATABASE_URL')
+DATABASE_URL = os.environ.get('DATABASE_URL') or os.environ.get('POSTGRES_URL')
 
 if DATABASE_URL:
     import psycopg2
