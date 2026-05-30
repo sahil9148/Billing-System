@@ -1,0 +1,28 @@
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Local SQLite databases
+data/*.db
+data/billing.db
+
+# User uploaded files
+static/uploads/*
+!static/uploads/.gitkeep
+
+# IDEs and editors
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/

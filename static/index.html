@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="BillFlow Pro — Premium Billing & Invoice Management System for Modern Businesses">
+    <title>BillFlow Pro — Premium Billing System</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css?v=4">
+</head>
+<body>
+
+
+    <!-- Login Page -->
+    <div id="login-page" class="login-page">
+        <div class="login-bg">
+            <div class="floating-orb orb-1"></div>
+            <div class="floating-orb orb-2"></div>
+            <div class="floating-orb orb-3"></div>
+        </div>
+        <div class="login-container">
+            <div class="login-card">
+                <div class="login-header">
+                    <div class="login-logo">
+                        <span class="logo-icon">⚡</span>
+                        <h1>BillFlow <span class="gradient-text">Pro</span></h1>
+                    </div>
+                    <p class="login-subtitle">Premium Billing & Invoice Management</p>
+                </div>
+                <form id="login-form" class="auth-form active">
+                    <div class="form-group">
+                        <label for="login-username">Username</label>
+                        <input type="text" id="login-username" placeholder="Enter your username" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="login-password">Password</label>
+                        <input type="password" id="login-password" placeholder="Enter your password" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-full" id="login-btn">
+                        <span>Sign In</span>
+                    </button>
+                    <p class="auth-switch">Don't have an account? <a href="#" id="show-register">Create Account</a></p>
+                    <div class="demo-credentials">
+                        <p>Demo credentials: <strong>admin</strong> / <strong>admin123</strong></p>
+                    </div>
+                </form>
+                <form id="register-form" class="auth-form">
+                    <div class="form-group">
+                        <label for="reg-fullname">Full Name</label>
+                        <input type="text" id="reg-fullname" placeholder="Enter your full name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="reg-email">Email</label>
+                        <input type="email" id="reg-email" placeholder="Enter your email" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="reg-username">Username</label>
+                        <input type="text" id="reg-username" placeholder="Choose a username" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="reg-password">Password</label>
+                        <input type="password" id="reg-password" placeholder="Create a password (min 6 chars)" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="reg-company">Company Name</label>
+                        <input type="text" id="reg-company" placeholder="Your company name">
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-full" id="register-btn">
+                        <span>Create Account</span>
+                    </button>
+                    <p class="auth-switch">Already have an account? <a href="#" id="show-login">Sign In</a></p>
+                </form>
+                <div id="auth-message" class="auth-message hidden"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main App -->
+    <div id="app" class="app-container hidden">
+        <aside id="sidebar" class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">
+                    <span class="logo-icon">⚡</span>
+                    <span class="logo-text">BillFlow <span class="gradient-text">Pro</span></span>
+                </div>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="#dashboard" class="nav-link active" data-page="dashboard">
+                    <span class="nav-icon">📊</span>
+                    <span class="nav-text">Dashboard</span>
+                </a>
+                <a href="#invoices" class="nav-link" data-page="invoices">
+                    <span class="nav-icon">📄</span>
+                    <span class="nav-text">Invoices</span>
+                </a>
+                <a href="#clients" class="nav-link" data-page="clients">
+                    <span class="nav-icon">👥</span>
+                    <span class="nav-text">Clients</span>
+                </a>
+                <a href="#products" class="nav-link" data-page="products">
+                    <span class="nav-icon">📦</span>
+                    <span class="nav-text">Products</span>
+                </a>
+                <a href="#payments" class="nav-link" data-page="payments">
+                    <span class="nav-icon">💰</span>
+                    <span class="nav-text">Payments</span>
+                </a>
+                <a href="#expenses" class="nav-link" data-page="expenses">
+                    <span class="nav-icon">📉</span>
+                    <span class="nav-text">Expenses</span>
+                </a>
+                <a href="#reports" class="nav-link" data-page="reports">
+                    <span class="nav-icon">📈</span>
+                    <span class="nav-text">Reports</span>
+                </a>
+                <a href="#calculator" class="nav-link" data-page="calculator">
+                    <span class="nav-icon">🧮</span>
+                    <span class="nav-text">Calculator</span>
+                </a>
+                <a href="#settings" class="nav-link" data-page="settings">
+                    <span class="nav-icon">⚙️</span>
+                    <span class="nav-text">Settings</span>
+                </a>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="user-profile">
+                    <div class="user-avatar" id="sidebar-avatar">S</div>
+                    <div class="user-info">
+                        <span class="user-name" id="sidebar-username">Sahil Arora</span>
+                        <span class="user-role" id="sidebar-role">Administrator</span>
+                    </div>
+                </div>
+                <button id="logout-btn" class="btn-logout" title="Sign Out">⏻</button>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <header class="topbar">
+                <div class="topbar-left">
+                    <button id="mobile-menu-btn" class="mobile-menu-btn">☰</button>
+                    <h2 id="page-title" class="page-title">Dashboard</h2>
+                </div>
+                <div class="topbar-right">
+                    <div class="search-box">
+                        <span class="search-icon">🔍</span>
+                        <input type="text" id="global-search" placeholder="Search anything...">
+                    </div>
+                    <button class="btn btn-primary btn-sm" id="quick-invoice-btn">+ New Invoice</button>
+                </div>
+            </header>
+            <div id="page-content" class="page-content"></div>
+        </main>
+
+        <!-- Chatbot Widget -->
+        <div id="chatbot-widget" class="chatbot-widget">
+            <button id="chatbot-toggle" class="chatbot-toggle">
+                <span class="chat-icon">💬</span>
+                <span class="chat-close hidden">✕</span>
+            </button>
+            <div id="chatbot-window" class="chatbot-window hidden">
+                <div class="chatbot-header">
+                    <div class="chatbot-title">
+                        <span class="bot-avatar">🤖</span>
+                        <div>
+                            <h3>Sia</h3>
+                            <span class="bot-status">● Online</span>
+                        </div>
+                    </div>
+                    <button id="chatbot-close" class="chatbot-close-btn">✕</button>
+                </div>
+                <div id="chatbot-messages" class="chatbot-messages">
+                    <div class="chat-message bot">
+                        <div class="message-bubble">Hey there! 👋 I'm Sia, your AI billing assistant. I can help with invoices, payments, revenue insights, support, and more. How can I help you today?</div>
+                    </div>
+                </div>
+                <div class="chatbot-suggestions" id="chatbot-suggestions">
+                    <button class="suggestion-chip" data-message="What's my revenue?">📊 Revenue</button>
+                    <button class="suggestion-chip" data-message="Show overdue invoices">⚠️ Overdue</button>
+                    <button class="suggestion-chip" data-message="I need support">📞 Support</button>
+                    <button class="suggestion-chip" data-message="What can you do?">❓ Help</button>
+                </div>
+                <div class="chatbot-input">
+                    <input type="text" id="chat-input" placeholder="Ask me anything...">
+                    <button id="chat-send" class="chat-send-btn">➤</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Toast Container -->
+        <div id="toast-container" class="toast-container"></div>
+
+        <!-- Modal Overlay -->
+        <div id="modal-overlay" class="modal-overlay hidden">
+            <div id="modal-content" class="modal-content">
+                <div class="modal-header">
+                    <h3 id="modal-title"></h3>
+                    <button id="modal-close" class="modal-close">✕</button>
+                </div>
+                <div id="modal-body" class="modal-body"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <script src="/static/js/app.js?v=3"></script>
+    <script src="/static/js/chatbot.js?v=3"></script>
+    <script src="/static/js/pages/dashboard.js?v=3"></script>
+    <script src="/static/js/pages/invoices.js?v=3"></script>
+    <script src="/static/js/pages/clients.js?v=3"></script>
+    <script src="/static/js/pages/products.js?v=3"></script>
+    <script src="/static/js/pages/payments.js?v=3"></script>
+    <script src="/static/js/pages/expenses.js?v=3"></script>
+    <script src="/static/js/pages/reports.js?v=3"></script>
+    <script src="/static/js/pages/settings.js?v=3"></script>
+    <script src="/static/js/pages/calculator.js?v=3"></script>
+</body>
+</html>
