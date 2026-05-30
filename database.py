@@ -1,6 +1,6 @@
 """
 BillFlow Pro — Database Module
-SQLite database initialization, schema creation, and demo data seeding.
+SQLite and PostgreSQL database initialization, schema creation, and demo data seeding.
 """
 import sqlite3
 import os
@@ -8,9 +8,103 @@ import bcrypt
 from datetime import datetime, timedelta
 from config import DATABASE_PATH
 
+# PostgreSQL Support for production cloud hosting (Vercel/Render/Railway)
+DATABASE_URL = os.environ.get('DATABASE_URL')
+
+if DATABASE_URL:
+    import psycopg2
+    import psycopg2.extras
+
+    class PgCursorWrapper:
+        def __init__(self, pg_conn, cursor):
+            self._conn = pg_conn
+            self._cursor = cursor
+            self.lastrowid = None
+
+        def execute(self, query, params=None):
+            # Translate placeholder '?' to '%s'
+            query = query.replace('?', '%s')
+            
+            # Translate SQLite-specific table creation elements to PostgreSQL syntax
+            if "AUTOINCREMENT" in query:
+                query = query.replace("INTEGER PRIMARY KEY AUTOINCREMENT", "SERIAL PRIMARY KEY")
+                # Clean check constraints if any formatting differences exist (standard works on both)
+                query = query.replace("CHECK(status IN ('draft','sent','paid','partial','overdue','cancelled'))", "")
+                query = query.replace("CHECK(discount_type IN ('percentage','fixed'))", "")
+
+            # Ignore SQLite specific configuration calls
+            if query.strip().upper().startswith("PRAGMA "):
+                return self
+
+            # Automatically capture inserted IDs by appending RETURNING id to INSERT statements
+            is_insert = query.strip().upper().startswith("INSERT INTO ")
+            if is_insert:
+                query = query.rstrip().rstrip(';') + " RETURNING id"
+
+            # Execute translated query
+            self._cursor.execute(query, params)
+
+            # Set self.lastrowid to mimic SQLite behavior
+            if is_insert:
+                try:
+                    row = self._cursor.fetchone()
+                    if row:
+                        self.lastrowid = row[0]
+                except Exception:
+                    pass
+            
+            return self
+
+        def executescript(self, script):
+            # PostgreSQL can execute multiple statements separated by semicolons natively
+            script = script.replace("INTEGER PRIMARY KEY AUTOINCREMENT", "SERIAL PRIMARY KEY")
+            self._cursor.execute(script)
+            return self
+
+        def fetchone(self):
+            return self._cursor.fetchone()
+
+        def fetchall(self):
+            return self._cursor.fetchall()
+
+        def close(self):
+            self._cursor.close()
+
+        def __iter__(self):
+            return iter(self._cursor)
+
+    class PgConnectionWrapper:
+        def __init__(self, dsn):
+            # Normalize database URI if it starts with older postgres:// scheme
+            if dsn.startswith("postgres://"):
+                dsn = dsn.replace("postgres://", "postgresql://", 1)
+            self._conn = psycopg2.connect(dsn)
+            self._cursor_factory = psycopg2.extras.DictCursor
+        
+        def cursor(self):
+            cursor = self._conn.cursor(cursor_factory=self._cursor_factory)
+            return PgCursorWrapper(self, cursor)
+
+        def execute(self, query, params=None):
+            cursor = self.cursor()
+            cursor.execute(query, params)
+            return cursor
+
+        def commit(self):
+            self._conn.commit()
+
+        def rollback(self):
+            self._conn.rollback()
+
+        def close(self):
+            self._conn.close()
+
 
 def get_db():
-    """Get database connection with Row factory and foreign keys enabled."""
+    """Get database connection with Row factory enabled (or PostgreSQL wrapper in production)."""
+    if DATABASE_URL:
+        return PgConnectionWrapper(DATABASE_URL)
+        
     os.makedirs(os.path.dirname(DATABASE_PATH), exist_ok=True)
     conn = sqlite3.connect(DATABASE_PATH)
     conn.row_factory = sqlite3.Row
