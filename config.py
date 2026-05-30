@@ -10,10 +10,13 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'billflow-pro-secret-key-change-in-pro
 JWT_EXPIRATION_HOURS = 24
 
 # Database
-DATABASE_PATH = os.path.join(BASE_DIR, 'data', 'billing.db')
-
-# File Uploads
-UPLOAD_FOLDER = os.path.join(BASE_DIR, 'static', 'uploads')
+# Check if running on Vercel or other serverless environment with a read-only filesystem
+if os.environ.get('VERCEL') == '1':
+    DATABASE_PATH = '/tmp/billing.db'
+    UPLOAD_FOLDER = '/tmp/uploads'
+else:
+    DATABASE_PATH = os.path.join(BASE_DIR, 'data', 'billing.db')
+    UPLOAD_FOLDER = os.path.join(BASE_DIR, 'static', 'uploads')
 
 # Supported Currencies
 CURRENCIES = {
