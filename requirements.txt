@@ -1,6 +1,5 @@
 flask==3.1.1
 flask-cors==5.0.1
 PyJWT==2.10.1
-bcrypt==4.3.0
 reportlab==4.4.0
 pg8000>=1.30.0

@@ -109,15 +109,19 @@ if DATABASE_URL:
 
     class PgConnectionWrapper:
         def __init__(self, dsn):
+            from urllib.parse import unquote
             url = urlparse(dsn)
             port = url.port or 5432
             db_name = url.path.split('?')[0][1:]
             
+            user = unquote(url.username) if url.username else None
+            password = unquote(url.password) if url.password else None
+            
             # Connect with SSL first (required for Vercel/Neon Postgres), fall back to non-SSL if it fails (like local setups)
             try:
                 self._conn = pg8000.dbapi.connect(
-                    user=url.username,
-                    password=url.password,
+                    user=user,
+                    password=password,
                     host=url.hostname,
                     port=port,
                     database=db_name,
@@ -125,8 +129,8 @@ if DATABASE_URL:
                 )
             except Exception:
                 self._conn = pg8000.dbapi.connect(
-                    user=url.username,
-                    password=url.password,
+                    user=user,
+                    password=password,
                     host=url.hostname,
                     port=port,
                     database=db_name
