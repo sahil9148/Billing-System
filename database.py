@@ -158,9 +158,19 @@ def get_db():
     global _DB_INITIALIZED
     
     conn = None
+    using_postgres = False
+    
     if DATABASE_URL:
-        conn = PgConnectionWrapper(DATABASE_URL)
-    else:
+        try:
+            conn = PgConnectionWrapper(DATABASE_URL)
+            using_postgres = True
+            print("[+] Successfully connected to PostgreSQL database.")
+        except Exception as pg_err:
+            print(f"[-] PostgreSQL connection failed: {pg_err}. Falling back to SQLite.")
+            conn = None
+            using_postgres = False
+            
+    if not conn:
         try:
             os.makedirs(os.path.dirname(DATABASE_PATH), exist_ok=True)
         except Exception:
