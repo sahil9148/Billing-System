@@ -110,7 +110,10 @@ def get_db():
     if DATABASE_URL:
         conn = PgConnectionWrapper(DATABASE_URL)
     else:
-        os.makedirs(os.path.dirname(DATABASE_PATH), exist_ok=True)
+        try:
+            os.makedirs(os.path.dirname(DATABASE_PATH), exist_ok=True)
+        except Exception:
+            pass
         conn = sqlite3.connect(DATABASE_PATH)
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA foreign_keys = ON")
@@ -118,8 +121,11 @@ def get_db():
     if not _DB_INITIALIZED:
         _DB_INITIALIZED = True
         try:
-            from config import UPLOAD_FOLDER
-            os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+            try:
+                from config import UPLOAD_FOLDER
+                os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+            except Exception:
+                pass
             
             cursor = conn.cursor()
             schema_sql = """

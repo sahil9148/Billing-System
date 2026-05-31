@@ -52,7 +52,7 @@ app.register_blueprint(chat_bp)
 
 @app.route('/')
 def index():
-    response = make_response(send_from_directory('static', 'index.html'))
+    response = make_response(send_from_directory(app.static_folder, 'index.html'))
     return response
 
 
