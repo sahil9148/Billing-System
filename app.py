@@ -66,17 +66,6 @@ def server_error(e):
     return {'error': 'Internal server error'}, 500
 
 
-# Ensure directories exist and database is initialized on startup
-from config import DATABASE_PATH, UPLOAD_FOLDER
-os.makedirs(os.path.dirname(DATABASE_PATH), exist_ok=True)
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
-print("[*] Initializing database...")
-init_db()
-
-print("[*] Seeding demo data...")
-seed_demo_data()
-
 if __name__ == '__main__':
     print("[+] BillFlow Pro is running at http://localhost:5000")
     app.run(host='0.0.0.0', port=5000, debug=True)

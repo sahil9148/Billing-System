@@ -100,15 +100,193 @@ if DATABASE_URL:
             self._conn.close()
 
 
+_DB_INITIALIZED = False
+
 def get_db():
-    """Get database connection with Row factory enabled (or PostgreSQL wrapper in production)."""
+    """Get database connection (or PostgreSQL wrapper) and initialize database lazily."""
+    global _DB_INITIALIZED
+    
+    conn = None
     if DATABASE_URL:
-        return PgConnectionWrapper(DATABASE_URL)
+        conn = PgConnectionWrapper(DATABASE_URL)
+    else:
+        os.makedirs(os.path.dirname(DATABASE_PATH), exist_ok=True)
+        conn = sqlite3.connect(DATABASE_PATH)
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA foreign_keys = ON")
         
-    os.makedirs(os.path.dirname(DATABASE_PATH), exist_ok=True)
-    conn = sqlite3.connect(DATABASE_PATH)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON")
+    if not _DB_INITIALIZED:
+        _DB_INITIALIZED = True
+        try:
+            from config import UPLOAD_FOLDER
+            os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+            
+            cursor = conn.cursor()
+            schema_sql = """
+                CREATE TABLE IF NOT EXISTS users (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    username TEXT UNIQUE NOT NULL,
+                    email TEXT UNIQUE NOT NULL,
+                    password_hash TEXT NOT NULL,
+                    full_name TEXT DEFAULT '',
+                    role TEXT DEFAULT 'admin',
+                    company_name TEXT DEFAULT '',
+                    company_address TEXT DEFAULT '',
+                    company_phone TEXT DEFAULT '',
+                    company_email TEXT DEFAULT '',
+                    company_gstin TEXT DEFAULT '',
+                    company_logo TEXT DEFAULT '',
+                    default_currency TEXT DEFAULT 'INR',
+                    default_tax_rate REAL DEFAULT 18.0,
+                    invoice_prefix TEXT DEFAULT 'INV',
+                    next_invoice_number INTEGER DEFAULT 1001,
+                    payment_terms TEXT DEFAULT 'Net 30',
+                    is_active INTEGER DEFAULT 1,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+
+                CREATE TABLE IF NOT EXISTS clients (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    name TEXT NOT NULL,
+                    email TEXT DEFAULT '',
+                    phone TEXT DEFAULT '',
+                    company TEXT DEFAULT '',
+                    billing_address TEXT DEFAULT '',
+                    city TEXT DEFAULT '',
+                    state TEXT DEFAULT '',
+                    zip_code TEXT DEFAULT '',
+                    country TEXT DEFAULT 'India',
+                    gstin TEXT DEFAULT '',
+                    notes TEXT DEFAULT '',
+                    is_active INTEGER DEFAULT 1,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(id)
+                );
+
+                CREATE TABLE IF NOT EXISTS products (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    name TEXT NOT NULL,
+                    description TEXT DEFAULT '',
+                    unit_price REAL NOT NULL DEFAULT 0,
+                    tax_rate REAL DEFAULT 18.0,
+                    category TEXT DEFAULT 'General',
+                    sku TEXT DEFAULT '',
+                    unit TEXT DEFAULT 'unit',
+                    is_active INTEGER DEFAULT 1,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(id)
+                );
+
+                CREATE TABLE IF NOT EXISTS invoices (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    client_id INTEGER NOT NULL,
+                    invoice_number TEXT UNIQUE NOT NULL,
+                    invoice_date TEXT NOT NULL,
+                    due_date TEXT NOT NULL,
+                    status TEXT DEFAULT 'draft',
+                    subtotal REAL DEFAULT 0,
+                    tax_amount REAL DEFAULT 0,
+                    discount REAL DEFAULT 0,
+                    discount_type TEXT DEFAULT 'percentage',
+                    total_amount REAL DEFAULT 0,
+                    amount_paid REAL DEFAULT 0,
+                    currency TEXT DEFAULT 'INR',
+                    notes TEXT DEFAULT '',
+                    terms TEXT DEFAULT '',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(id),
+                    FOREIGN KEY (client_id) REFERENCES clients(id)
+                );
+
+                CREATE TABLE IF NOT EXISTS invoice_items (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    invoice_id INTEGER NOT NULL,
+                    product_id INTEGER,
+                    description TEXT NOT NULL,
+                    quantity REAL NOT NULL DEFAULT 1,
+                    unit_price REAL NOT NULL DEFAULT 0,
+                    tax_rate REAL DEFAULT 0,
+                    tax_amount REAL DEFAULT 0,
+                    line_total REAL NOT NULL DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE CASCADE,
+                    FOREIGN KEY (product_id) REFERENCES products(id)
+                );
+
+                CREATE TABLE IF NOT EXISTS payments (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    invoice_id INTEGER NOT NULL,
+                    user_id INTEGER NOT NULL,
+                    payment_date TEXT NOT NULL,
+                    amount REAL NOT NULL,
+                    payment_method TEXT DEFAULT 'Cash',
+                    reference_number TEXT DEFAULT '',
+                    notes TEXT DEFAULT '',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (invoice_id) REFERENCES invoices(id),
+                    FOREIGN KEY (user_id) REFERENCES users(id)
+                );
+
+                CREATE TABLE IF NOT EXISTS expenses (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    category TEXT NOT NULL DEFAULT 'Miscellaneous',
+                    description TEXT DEFAULT '',
+                    amount REAL NOT NULL DEFAULT 0,
+                    expense_date TEXT NOT NULL,
+                    vendor TEXT DEFAULT '',
+                    payment_method TEXT DEFAULT 'Cash',
+                    is_billable INTEGER DEFAULT 0,
+                    client_id INTEGER,
+                    notes TEXT DEFAULT '',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(id),
+                    FOREIGN KEY (client_id) REFERENCES clients(id)
+                );
+
+                CREATE TABLE IF NOT EXISTS chat_history (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    message TEXT NOT NULL,
+                    response TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(id)
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_clients_user ON clients(user_id);
+                CREATE INDEX IF NOT EXISTS idx_products_user ON products(user_id);
+                CREATE INDEX IF NOT EXISTS idx_invoices_user ON invoices(user_id);
+                CREATE INDEX IF NOT EXISTS idx_invoices_client ON invoices(client_id);
+                CREATE INDEX IF NOT EXISTS idx_invoices_status ON invoices(status);
+                CREATE INDEX IF NOT EXISTS idx_invoice_items_invoice ON invoice_items(invoice_id);
+                CREATE INDEX IF NOT EXISTS idx_payments_invoice ON payments(invoice_id);
+                CREATE INDEX IF NOT EXISTS idx_expenses_user ON expenses(user_id);
+            """
+            
+            if DATABASE_URL:
+                cursor.executescript(schema_sql)
+            else:
+                conn.executescript(schema_sql)
+            conn.commit()
+            
+            cursor.execute("SELECT COUNT(*) FROM users")
+            if cursor.fetchone()[0] == 0:
+                print("[*] Seeding demo data...")
+                seed_demo_data_conn(conn, cursor)
+                conn.commit()
+                
+        except Exception as e:
+            print(f"[-] Lazy database initialization failed: {e}")
+            _DB_INITIALIZED = False
+            
     return conn
 
 
@@ -119,173 +297,19 @@ def close_db(conn):
 
 
 def init_db():
-    """Create all database tables."""
-    conn = get_db()
-    cursor = conn.cursor()
-
-    cursor.executescript("""
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT UNIQUE NOT NULL,
-            email TEXT UNIQUE NOT NULL,
-            password_hash TEXT NOT NULL,
-            full_name TEXT DEFAULT '',
-            role TEXT DEFAULT 'admin',
-            company_name TEXT DEFAULT '',
-            company_address TEXT DEFAULT '',
-            company_phone TEXT DEFAULT '',
-            company_email TEXT DEFAULT '',
-            company_gstin TEXT DEFAULT '',
-            company_logo TEXT DEFAULT '',
-            default_currency TEXT DEFAULT 'INR',
-            default_tax_rate REAL DEFAULT 18.0,
-            invoice_prefix TEXT DEFAULT 'INV',
-            next_invoice_number INTEGER DEFAULT 1001,
-            payment_terms TEXT DEFAULT 'Net 30',
-            is_active INTEGER DEFAULT 1,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
-
-        CREATE TABLE IF NOT EXISTS clients (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            name TEXT NOT NULL,
-            email TEXT DEFAULT '',
-            phone TEXT DEFAULT '',
-            company TEXT DEFAULT '',
-            billing_address TEXT DEFAULT '',
-            city TEXT DEFAULT '',
-            state TEXT DEFAULT '',
-            zip_code TEXT DEFAULT '',
-            country TEXT DEFAULT 'India',
-            gstin TEXT DEFAULT '',
-            notes TEXT DEFAULT '',
-            is_active INTEGER DEFAULT 1,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users(id)
-        );
-
-        CREATE TABLE IF NOT EXISTS products (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            name TEXT NOT NULL,
-            description TEXT DEFAULT '',
-            unit_price REAL NOT NULL DEFAULT 0,
-            tax_rate REAL DEFAULT 18.0,
-            category TEXT DEFAULT 'General',
-            sku TEXT DEFAULT '',
-            unit TEXT DEFAULT 'unit',
-            is_active INTEGER DEFAULT 1,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users(id)
-        );
-
-        CREATE TABLE IF NOT EXISTS invoices (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            client_id INTEGER NOT NULL,
-            invoice_number TEXT UNIQUE NOT NULL,
-            invoice_date TEXT NOT NULL,
-            due_date TEXT NOT NULL,
-            status TEXT DEFAULT 'draft' CHECK(status IN ('draft','sent','paid','partial','overdue','cancelled')),
-            subtotal REAL DEFAULT 0,
-            tax_amount REAL DEFAULT 0,
-            discount REAL DEFAULT 0,
-            discount_type TEXT DEFAULT 'percentage' CHECK(discount_type IN ('percentage','fixed')),
-            total_amount REAL DEFAULT 0,
-            amount_paid REAL DEFAULT 0,
-            currency TEXT DEFAULT 'INR',
-            notes TEXT DEFAULT '',
-            terms TEXT DEFAULT '',
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users(id),
-            FOREIGN KEY (client_id) REFERENCES clients(id)
-        );
-
-        CREATE TABLE IF NOT EXISTS invoice_items (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            invoice_id INTEGER NOT NULL,
-            product_id INTEGER,
-            description TEXT NOT NULL,
-            quantity REAL NOT NULL DEFAULT 1,
-            unit_price REAL NOT NULL DEFAULT 0,
-            tax_rate REAL DEFAULT 0,
-            tax_amount REAL DEFAULT 0,
-            line_total REAL NOT NULL DEFAULT 0,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE CASCADE,
-            FOREIGN KEY (product_id) REFERENCES products(id)
-        );
-
-        CREATE TABLE IF NOT EXISTS payments (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            invoice_id INTEGER NOT NULL,
-            user_id INTEGER NOT NULL,
-            payment_date TEXT NOT NULL,
-            amount REAL NOT NULL,
-            payment_method TEXT DEFAULT 'Cash',
-            reference_number TEXT DEFAULT '',
-            notes TEXT DEFAULT '',
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (invoice_id) REFERENCES invoices(id),
-            FOREIGN KEY (user_id) REFERENCES users(id)
-        );
-
-        CREATE TABLE IF NOT EXISTS expenses (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            category TEXT NOT NULL DEFAULT 'Miscellaneous',
-            description TEXT DEFAULT '',
-            amount REAL NOT NULL DEFAULT 0,
-            expense_date TEXT NOT NULL,
-            vendor TEXT DEFAULT '',
-            payment_method TEXT DEFAULT 'Cash',
-            is_billable INTEGER DEFAULT 0,
-            client_id INTEGER,
-            notes TEXT DEFAULT '',
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users(id),
-            FOREIGN KEY (client_id) REFERENCES clients(id)
-        );
-
-        CREATE TABLE IF NOT EXISTS chat_history (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            message TEXT NOT NULL,
-            response TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users(id)
-        );
-
-        CREATE INDEX IF NOT EXISTS idx_clients_user ON clients(user_id);
-        CREATE INDEX IF NOT EXISTS idx_products_user ON products(user_id);
-        CREATE INDEX IF NOT EXISTS idx_invoices_user ON invoices(user_id);
-        CREATE INDEX IF NOT EXISTS idx_invoices_client ON invoices(client_id);
-        CREATE INDEX IF NOT EXISTS idx_invoices_status ON invoices(status);
-        CREATE INDEX IF NOT EXISTS idx_invoice_items_invoice ON invoice_items(invoice_id);
-        CREATE INDEX IF NOT EXISTS idx_payments_invoice ON payments(invoice_id);
-        CREATE INDEX IF NOT EXISTS idx_expenses_user ON expenses(user_id);
-    """)
-
-    conn.commit()
-    close_db(conn)
+    """Create all database tables (legacy wrapper)."""
+    get_db()
+    return True
 
 
 def seed_demo_data():
-    """Insert demo data for showcasing the system."""
-    conn = get_db()
-    cursor = conn.cursor()
+    """Seed demo data (legacy wrapper)."""
+    get_db()
+    return True
 
-    # Check if data already exists
-    cursor.execute("SELECT COUNT(*) FROM users")
-    if cursor.fetchone()[0] > 0:
-        close_db(conn)
-        return
+
+def seed_demo_data_conn(conn, cursor):
+    """Insert demo data for showcasing the system using the provided connection and cursor."""
 
     now = datetime.now()
     today = now.strftime('%Y-%m-%d')
