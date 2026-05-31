@@ -12,8 +12,9 @@ from config import DATABASE_PATH
 DATABASE_URL = os.environ.get('DATABASE_URL') or os.environ.get('POSTGRES_URL')
 
 if DATABASE_URL:
-    import psycopg2
-    import psycopg2.extras
+    import pg8000
+    from urllib.parse import urlparse
+    import ssl
 
     class PgCursorWrapper:
         def __init__(self, pg_conn, cursor):
@@ -56,33 +57,83 @@ if DATABASE_URL:
             return self
 
         def executescript(self, script):
-            # PostgreSQL can execute multiple statements separated by semicolons natively
+            # pg8000 does not support multiple statements in one execute call natively via standard DB-API,
+            # so we split the script by semicolon and run statements individually.
             script = script.replace("INTEGER PRIMARY KEY AUTOINCREMENT", "SERIAL PRIMARY KEY")
-            self._cursor.execute(script)
+            for statement in script.split(';'):
+                stmt = statement.strip()
+                if stmt:
+                    self._cursor.execute(stmt)
             return self
 
+        def _wrap_row(self, row):
+            if row is None:
+                return None
+            if not self._cursor.description:
+                return row
+            columns = [desc[0] for desc in self._cursor.description]
+            return DictRow(row, columns)
+
         def fetchone(self):
-            return self._cursor.fetchone()
+            row = self._cursor.fetchone()
+            return self._wrap_row(row)
 
         def fetchall(self):
-            return self._cursor.fetchall()
+            rows = self._cursor.fetchall()
+            if not rows:
+                return []
+            if not self._cursor.description:
+                return rows
+            columns = [desc[0] for desc in self._cursor.description]
+            return [DictRow(row, columns) for row in rows]
 
         def close(self):
             self._cursor.close()
 
         def __iter__(self):
-            return iter(self._cursor)
+            for row in self._cursor:
+                yield self._wrap_row(row)
+
+    class DictRow(list):
+        def __init__(self, row_data, columns):
+            super().__init__(row_data)
+            self._dict = dict(zip(columns, row_data))
+
+        def __getitem__(self, key):
+            if isinstance(key, str):
+                return self._dict[key]
+            return super().__getitem__(key)
+
+        def keys(self):
+            return self._dict.keys()
 
     class PgConnectionWrapper:
         def __init__(self, dsn):
-            # Normalize database URI if it starts with older postgres:// scheme
-            if dsn.startswith("postgres://"):
-                dsn = dsn.replace("postgres://", "postgresql://", 1)
-            self._conn = psycopg2.connect(dsn)
-            self._cursor_factory = psycopg2.extras.DictCursor
+            url = urlparse(dsn)
+            port = url.port or 5432
+            db_name = url.path.split('?')[0][1:]
+            
+            # Connect with SSL first (required for Vercel/Neon Postgres), fall back to non-SSL if it fails (like local setups)
+            try:
+                self._conn = pg8000.dbapi.connect(
+                    user=url.username,
+                    password=url.password,
+                    host=url.hostname,
+                    port=port,
+                    database=db_name,
+                    ssl_context=ssl.create_default_context()
+                )
+            except Exception:
+                self._conn = pg8000.dbapi.connect(
+                    user=url.username,
+                    password=url.password,
+                    host=url.hostname,
+                    port=port,
+                    database=db_name
+                )
         
         def cursor(self):
-            cursor = self._conn.cursor(cursor_factory=self._cursor_factory)
+            cursor = self._conn.cursor()
             return PgCursorWrapper(self, cursor)
 
         def execute(self, query, params=None):
