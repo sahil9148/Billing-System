@@ -4,7 +4,7 @@ Handles login, registration, profile management with JWT tokens.
 """
 from flask import Blueprint, request, jsonify
 import jwt
-import bcrypt
+from werkzeug.security import generate_password_hash, check_password_hash
 import datetime
 from functools import wraps
 from config import SECRET_KEY, JWT_EXPIRATION_HOURS
@@ -63,8 +63,7 @@ def login():
         if not user:
             return jsonify({'error': 'Invalid username or password'}), 401
 
-        if not bcrypt.checkpw(data['password'].encode('utf-8'),
-                              user['password_hash'].encode('utf-8')):
+        if not check_password_hash(user['password_hash'], data['password']):
             return jsonify({'error': 'Invalid username or password'}), 401
 
         token = generate_token(user['id'])
@@ -106,8 +105,7 @@ def register():
         if existing:
             return jsonify({'error': 'Username or email already exists'}), 409
 
-        pw_hash = bcrypt.hashpw(data['password'].encode('utf-8'),
-                                bcrypt.gensalt()).decode('utf-8')
+        pw_hash = generate_password_hash(data['password'])
 
         cursor = conn.execute("""
             INSERT INTO users (username, email, password_hash, full_name, company_name)
@@ -190,8 +188,7 @@ def update_profile(current_user_id):
         if data.get('password'):
             if len(data['password']) < 6:
                 return jsonify({'error': 'Password must be at least 6 characters'}), 400
-            pw_hash = bcrypt.hashpw(data['password'].encode('utf-8'),
-                                    bcrypt.gensalt()).decode('utf-8')
+            pw_hash = generate_password_hash(data['password'])
             fields.append("password_hash = ?")
             values.append(pw_hash)
 

@@ -4,7 +4,7 @@ SQLite and PostgreSQL database initialization, schema creation, and demo data se
 """
 import sqlite3
 import os
-import bcrypt
+from werkzeug.security import generate_password_hash
 from datetime import datetime, timedelta
 from config import DATABASE_PATH
 
@@ -382,7 +382,7 @@ def seed_demo_data_conn(conn, cursor):
     today = now.strftime('%Y-%m-%d')
 
     # --- Demo User ---
-    pw_hash = bcrypt.hashpw('admin123'.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    pw_hash = generate_password_hash('admin123')
     cursor.execute("""
         INSERT INTO users (username, email, password_hash, full_name, role,
             company_name, company_address, company_phone, company_email,
