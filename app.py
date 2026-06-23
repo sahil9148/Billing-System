@@ -27,6 +27,7 @@ try:
     from flask import Flask, send_from_directory, make_response
     from flask_cors import CORS
     from database import get_db
+    import config
 
     # Import blueprints
     from routes.auth import auth_bp
@@ -39,7 +40,7 @@ try:
     from routes.chat import chat_bp
 
     app = Flask(__name__, static_folder='static', static_url_path='/static')
-    app.config['SECRET_KEY'] = 'billflow-pro-secret-key-2026'
+    app.config['SECRET_KEY'] = config.SECRET_KEY
     app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
     app.config['TEMPLATES_AUTO_RELOAD'] = True
     CORS(app)
@@ -64,11 +65,11 @@ try:
         response.headers['X-XSS-Protection'] = '1; mode=block'
         # Add CSP to permit localhost, Fonts, Chart.js, Three.js, and Firebase APIs
         response.headers['Content-Security-Policy'] = (
-            "default-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; "
+            "default-src 'self' blob: https://fonts.googleapis.com https://fonts.gstatic.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; "
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
             "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; "
             "img-src 'self' data:; "
-            "connect-src 'self' https://firestore.googleapis.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com;"
+            "connect-src 'self' blob: https://firestore.googleapis.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com;"
         )
         return response
 

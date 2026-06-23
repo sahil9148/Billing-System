@@ -55,7 +55,7 @@ const InvoicesPage = {
                                             <button class="table-action-btn" onclick="InvoicesPage.view(${inv.id})">View</button>
                                             ${inv.status === 'draft' ? `<button class="table-action-btn" onclick="InvoicesPage.updateStatus(${inv.id}, 'sent')">Send</button>` : ''}
                                             ${inv.status !== 'paid' && inv.status !== 'cancelled' ? `<button class="table-action-btn" onclick="InvoicesPage.updateStatus(${inv.id}, 'paid')">Pay</button>` : ''}
-                                            <button class="table-action-btn" onclick="window.open('/api/invoices/${inv.id}/pdf', '_blank')">PDF</button>
+                                            <button class="table-action-btn" onclick="InvoicesPage.downloadPDF(${inv.id}, '${inv.invoice_number}')">PDF</button>
                                             <button class="table-action-btn danger" onclick="InvoicesPage.deleteInvoice(${inv.id})">✕</button>
                                         </td>
                                     </tr>
@@ -351,7 +351,7 @@ const InvoicesPage = {
                     ${inv.notes ? `<p style="margin-top:16px;color:var(--text-secondary);font-size:13px"><strong>Notes:</strong> ${escapeHTML(inv.notes)}</p>` : ''}
 
                     <div style="display:flex;gap:8px;margin-top:20px;flex-wrap:wrap">
-                        <button class="btn btn-primary btn-sm" onclick="window.open('/api/invoices/${inv.id}/pdf','_blank')">📄 Download PDF</button>
+                        <button class="btn btn-primary btn-sm" onclick="InvoicesPage.downloadPDF(${inv.id}, '${inv.invoice_number}')">📄 Download PDF</button>
                         ${inv.status === 'draft' ? `<button class="btn btn-secondary btn-sm" onclick="InvoicesPage.updateStatus(${inv.id},'sent');closeModal()">📤 Mark Sent</button>` : ''}
                         ${inv.status !== 'paid' && inv.status !== 'cancelled' ? `<button class="btn btn-secondary btn-sm" onclick="InvoicesPage.updateStatus(${inv.id},'paid');closeModal()">✅ Mark Paid</button>` : ''}
                     </div>
@@ -359,6 +359,36 @@ const InvoicesPage = {
             `;
 
             showModal(`Invoice ${inv.invoice_number}`, html);
+        } catch (err) {
+            showToast(err.message, 'error');
+        }
+    },
+
+    async downloadPDF(id, invoiceNumber) {
+        try {
+            showToast('Generating PDF...', 'info');
+            const response = await fetch(`/api/invoices/${id}/pdf`, {
+                headers: {
+                    'Authorization': `Bearer ${API.token}`
+                }
+            });
+            if (response.status === 401) {
+                API.logout();
+                return;
+            }
+            if (!response.ok) {
+                const data = await response.json().catch(() => ({}));
+                throw new Error(data.error || 'Failed to download PDF');
+            }
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Invoice-${invoiceNumber || id}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
         } catch (err) {
             showToast(err.message, 'error');
         }

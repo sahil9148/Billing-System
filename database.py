@@ -183,7 +183,18 @@ def get_db():
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA foreign_keys = ON")
         
-    if not _DB_INITIALIZED:
+    # Check if SQLite database needs initialization (even if _DB_INITIALIZED is True, the /tmp file might be wiped or new)
+    needs_init = not _DB_INITIALIZED
+    if not needs_init and not using_postgres:
+        try:
+            test_cursor = conn.cursor()
+            test_cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='users'")
+            if not test_cursor.fetchone():
+                needs_init = True
+        except Exception:
+            needs_init = True
+
+    if needs_init:
         _DB_INITIALIZED = True
         try:
             try:
@@ -572,6 +583,4 @@ def seed_demo_data_conn(conn, cursor):
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """, e)
 
-    conn.commit()
-    close_db(conn)
     print("[+] Demo data seeded successfully!")
