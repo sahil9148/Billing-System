@@ -233,3 +233,29 @@ document.addEventListener('DOMContentLoaded', () => {
     if (API.token && API.user) showApp();
     else showLogin();
 });
+
+// --- Password Visibility Toggle ---
+document.addEventListener('click', (e) => {
+    const btn = e.target.closest('.pw-toggle');
+    if (!btn) return;
+
+    const targetId = btn.dataset.target;
+    const input = document.getElementById(targetId);
+    if (!input) return;
+
+    const eyeIcon = btn.querySelector('.eye-icon');
+    const eyeOffIcon = btn.querySelector('.eye-off-icon');
+
+    if (input.type === 'password') {
+        input.type = 'text';
+        if (eyeIcon) eyeIcon.classList.add('hidden');
+        if (eyeOffIcon) eyeOffIcon.classList.remove('hidden');
+        btn.style.color = 'var(--accent)';
+    } else {
+        input.type = 'password';
+        if (eyeIcon) eyeIcon.classList.remove('hidden');
+        if (eyeOffIcon) eyeOffIcon.classList.add('hidden');
+        btn.style.color = '';
+    }
+});
+

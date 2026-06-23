@@ -212,6 +212,8 @@ def get_db():
                     invoice_prefix TEXT DEFAULT 'INV',
                     next_invoice_number INTEGER DEFAULT 1001,
                     payment_terms TEXT DEFAULT 'Net 30',
+                    firebase_project_id TEXT DEFAULT '',
+                    firebase_sync_enabled INTEGER DEFAULT 0,
                     is_active INTEGER DEFAULT 1,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -346,6 +348,17 @@ def get_db():
                 cursor.executescript(schema_sql)
             else:
                 conn.executescript(schema_sql)
+            conn.commit()
+
+            # Add firebase columns to users table if they do not exist (self-healing migration)
+            try:
+                cursor.execute("ALTER TABLE users ADD COLUMN firebase_project_id TEXT DEFAULT ''")
+            except Exception:
+                pass
+            try:
+                cursor.execute("ALTER TABLE users ADD COLUMN firebase_sync_enabled INTEGER DEFAULT 0")
+            except Exception:
+                pass
             conn.commit()
             
             cursor.execute("SELECT COUNT(*) FROM users")

@@ -46,8 +46,9 @@ try:
 
 
     @app.after_request
-    def add_no_cache(response):
-        """Prevent browser from caching any file during development."""
+    def add_security_and_no_cache(response):
+        """Prevent browser from caching and add strong security headers."""
+        # Disable caching
         response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0'
         response.headers['Pragma'] = 'no-cache'
         response.headers['Expires'] = '0'
@@ -56,6 +57,19 @@ try:
             del response.headers['ETag']
         if 'Last-Modified' in response.headers:
             del response.headers['Last-Modified']
+            
+        # Security headers
+        response.headers['X-Content-Type-Options'] = 'nosniff'
+        response.headers['X-Frame-Options'] = 'DENY'
+        response.headers['X-XSS-Protection'] = '1; mode=block'
+        # Add CSP to permit localhost, Fonts, Chart.js, Three.js, and Firebase APIs
+        response.headers['Content-Security-Policy'] = (
+            "default-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; "
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; "
+            "img-src 'self' data:; "
+            "connect-src 'self' https://firestore.googleapis.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com;"
+        )
         return response
 
 

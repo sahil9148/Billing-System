@@ -4,6 +4,7 @@ BillFlow Pro — Expense Management Routes
 from flask import Blueprint, request, jsonify
 from database import get_db, close_db
 from routes.auth import token_required
+from firebase_sync import check_and_sync_resource
 
 expenses_bp = Blueprint('expenses', __name__, url_prefix='/api/expenses')
 
@@ -79,6 +80,10 @@ def create_expense(current_user_id):
 
         expense = conn.execute("SELECT * FROM expenses WHERE id = ?",
                                (cursor.lastrowid,)).fetchone()
+        
+        # Firebase sync
+        check_and_sync_resource(current_user_id, "expenses", str(expense["id"]), dict(expense), conn)
+        
         return jsonify(dict(expense)), 201
     finally:
         close_db(conn)
@@ -131,6 +136,11 @@ def update_expense(current_user_id, expense_id):
               data.get('notes', ''), expense_id, current_user_id))
         conn.commit()
 
+        # Firebase sync
+        expense = conn.execute("SELECT * FROM expenses WHERE id = ?", (expense_id,)).fetchone()
+        if expense:
+            check_and_sync_resource(current_user_id, "expenses", str(expense_id), dict(expense), conn)
+
         return jsonify({'message': 'Expense updated successfully'}), 200
     finally:
         close_db(conn)
@@ -146,6 +156,10 @@ def delete_expense(current_user_id, expense_id):
             (expense_id, current_user_id)
         )
         conn.commit()
+        
+        # Firebase sync
+        check_and_sync_resource(current_user_id, "expenses", str(expense_id), None, conn, delete=True)
+        
         return jsonify({'message': 'Expense deleted successfully'}), 200
     finally:
         close_db(conn)

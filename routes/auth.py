@@ -6,11 +6,36 @@ from flask import Blueprint, request, jsonify
 import jwt
 from werkzeug.security import generate_password_hash, check_password_hash
 import datetime
+import time
 from functools import wraps
 from config import SECRET_KEY, JWT_EXPIRATION_HOURS
 from database import get_db, close_db
 
 auth_bp = Blueprint('auth', __name__, url_prefix='/api/auth')
+
+# Simple IP-based rate limiter for login to prevent brute force attacks
+LOGIN_LIMIT = 5  # attempts
+LIMIT_WINDOW = 60  # seconds
+LOGIN_ATTEMPTS = {}  # remote_ip: [timestamps]
+
+def rate_limit_login(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        ip = request.remote_addr
+        now = time.time()
+        
+        # Clean up old timestamps
+        if ip in LOGIN_ATTEMPTS:
+            LOGIN_ATTEMPTS[ip] = [t for t in LOGIN_ATTEMPTS[ip] if now - t < LIMIT_WINDOW]
+        else:
+            LOGIN_ATTEMPTS[ip] = []
+            
+        if len(LOGIN_ATTEMPTS[ip]) >= LOGIN_LIMIT:
+            return jsonify({'error': 'Too many login attempts. Please try again after 60 seconds.'}), 429
+            
+        LOGIN_ATTEMPTS[ip].append(now)
+        return f(*args, **kwargs)
+    return decorated
 
 
 def token_required(f):
@@ -48,6 +73,7 @@ def generate_token(user_id):
 
 
 @auth_bp.route('/login', methods=['POST'])
+@rate_limit_login
 def login():
     data = request.get_json()
     if not data or not data.get('username') or not data.get('password'):
@@ -78,6 +104,8 @@ def login():
                 'role': user['role'],
                 'company_name': user['company_name'],
                 'default_currency': user['default_currency'],
+                'firebase_project_id': user['firebase_project_id'],
+                'firebase_sync_enabled': user['firebase_sync_enabled'],
             }
         }), 200
     finally:
@@ -127,6 +155,8 @@ def register():
                 'role': 'admin',
                 'company_name': data.get('company_name', ''),
                 'default_currency': 'INR',
+                'firebase_project_id': '',
+                'firebase_sync_enabled': 0,
             }
         }), 201
     finally:
@@ -160,6 +190,8 @@ def get_profile(current_user_id):
             'invoice_prefix': user['invoice_prefix'],
             'next_invoice_number': user['next_invoice_number'],
             'payment_terms': user['payment_terms'],
+            'firebase_project_id': user['firebase_project_id'],
+            'firebase_sync_enabled': user['firebase_sync_enabled'],
         }), 200
     finally:
         close_db(conn)
@@ -177,7 +209,8 @@ def update_profile(current_user_id):
             'full_name', 'email', 'company_name', 'company_address',
             'company_phone', 'company_email', 'company_gstin',
             'default_currency', 'default_tax_rate', 'invoice_prefix',
-            'next_invoice_number', 'payment_terms'
+            'next_invoice_number', 'payment_terms', 'firebase_project_id',
+            'firebase_sync_enabled'
         ]
 
         for field in updatable:
@@ -205,5 +238,24 @@ def update_profile(current_user_id):
         conn.commit()
 
         return jsonify({'message': 'Profile updated successfully'}), 200
+    finally:
+        close_db(conn)
+
+
+@auth_bp.route('/sync_firebase', methods=['POST'])
+@token_required
+def trigger_firebase_sync(current_user_id):
+    conn = get_db()
+    try:
+        user = conn.execute("SELECT * FROM users WHERE id = ?", (current_user_id,)).fetchone()
+        if not user or not user['firebase_project_id'] or not user['firebase_sync_enabled']:
+            return jsonify({'error': 'Firebase is not configured or sync is disabled'}), 400
+            
+        from firebase_sync import sync_all_user_data
+        sync_results = sync_all_user_data(current_user_id, user['firebase_project_id'], conn)
+        return jsonify({
+            'message': 'Synchronization started in background',
+            'results': sync_results
+        }), 200
     finally:
         close_db(conn)

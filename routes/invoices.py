@@ -6,6 +6,7 @@ from flask import Blueprint, request, jsonify, send_file
 from database import get_db, close_db
 from routes.auth import token_required
 from config import CURRENCIES
+from firebase_sync import check_and_sync_resource
 import io
 import os
 
@@ -170,6 +171,11 @@ def create_invoice(current_user_id):
         result = dict(invoice)
         result['items'] = [dict(it) for it in items]
 
+        # Firebase sync
+        sync_data = dict(result)
+        sync_data['items'] = [dict(it) for it in items]
+        check_and_sync_resource(current_user_id, "invoices", str(invoice_id), sync_data, conn)
+
         return jsonify(result), 201
     finally:
         close_db(conn)
@@ -271,6 +277,15 @@ def update_invoice(current_user_id, invoice_id):
                   item['tax_amount'], item['line_total']))
 
         conn.commit()
+
+        # Firebase sync
+        updated_inv = conn.execute("SELECT * FROM invoices WHERE id = ?", (invoice_id,)).fetchone()
+        if updated_inv:
+            inv_items = conn.execute("SELECT * FROM invoice_items WHERE invoice_id = ?", (invoice_id,)).fetchall()
+            inv_data = dict(updated_inv)
+            inv_data['items'] = [dict(it) for it in inv_items]
+            check_and_sync_resource(current_user_id, "invoices", str(invoice_id), inv_data, conn)
+
         return jsonify({'message': 'Invoice updated successfully'}), 200
     finally:
         close_db(conn)
@@ -292,6 +307,10 @@ def delete_invoice(current_user_id, invoice_id):
             (invoice_id, current_user_id)
         )
         conn.commit()
+
+        # Firebase sync
+        check_and_sync_resource(current_user_id, "invoices", str(invoice_id), None, conn, delete=True)
+
         return jsonify({'message': 'Invoice deleted successfully'}), 200
     finally:
         close_db(conn)
@@ -328,6 +347,14 @@ def update_status(current_user_id, invoice_id):
             params
         )
         conn.commit()
+
+        # Firebase sync
+        updated_inv = conn.execute("SELECT * FROM invoices WHERE id = ?", (invoice_id,)).fetchone()
+        if updated_inv:
+            inv_items = conn.execute("SELECT * FROM invoice_items WHERE invoice_id = ?", (invoice_id,)).fetchall()
+            inv_data = dict(updated_inv)
+            inv_data['items'] = [dict(it) for it in inv_items]
+            check_and_sync_resource(current_user_id, "invoices", str(invoice_id), inv_data, conn)
 
         return jsonify({'message': f'Invoice marked as {new_status}'}), 200
     finally:

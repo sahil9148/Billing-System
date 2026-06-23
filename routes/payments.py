@@ -4,6 +4,7 @@ BillFlow Pro — Payment Tracking Routes
 from flask import Blueprint, request, jsonify
 from database import get_db, close_db
 from routes.auth import token_required
+from firebase_sync import check_and_sync_resource
 
 payments_bp = Blueprint('payments', __name__, url_prefix='/api/payments')
 
@@ -94,6 +95,17 @@ def create_payment(current_user_id):
             WHERE p.id = ?
         """, (cursor.lastrowid,)).fetchone()
 
+        # Firebase sync
+        check_and_sync_resource(current_user_id, "payments", str(payment["id"]), dict(payment), conn)
+        
+        # Also sync the updated invoice
+        updated_invoice = conn.execute("SELECT * FROM invoices WHERE id = ?", (data['invoice_id'],)).fetchone()
+        if updated_invoice:
+            inv_data = dict(updated_invoice)
+            items = conn.execute("SELECT * FROM invoice_items WHERE invoice_id = ?", (updated_invoice["id"],)).fetchall()
+            inv_data["items"] = [dict(item) for item in items]
+            check_and_sync_resource(current_user_id, "invoices", str(updated_invoice["id"]), inv_data, conn)
+
         return jsonify(dict(payment)), 201
     finally:
         close_db(conn)
@@ -162,6 +174,18 @@ def delete_payment(current_user_id, payment_id):
         """, (round(total_paid, 2), status, payment['invoice_id']))
 
         conn.commit()
+
+        # Firebase sync
+        check_and_sync_resource(current_user_id, "payments", str(payment_id), None, conn, delete=True)
+        
+        # Also sync the updated invoice
+        updated_invoice = conn.execute("SELECT * FROM invoices WHERE id = ?", (payment['invoice_id'],)).fetchone()
+        if updated_invoice:
+            inv_data = dict(updated_invoice)
+            items = conn.execute("SELECT * FROM invoice_items WHERE invoice_id = ?", (updated_invoice["id"],)).fetchall()
+            inv_data["items"] = [dict(item) for item in items]
+            check_and_sync_resource(current_user_id, "invoices", str(updated_invoice["id"]), inv_data, conn)
+
         return jsonify({'message': 'Payment deleted successfully'}), 200
     finally:
         close_db(conn)

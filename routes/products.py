@@ -4,6 +4,7 @@ BillFlow Pro — Product Catalog Routes
 from flask import Blueprint, request, jsonify
 from database import get_db, close_db
 from routes.auth import token_required
+from firebase_sync import check_and_sync_resource
 
 products_bp = Blueprint('products', __name__, url_prefix='/api/products')
 
@@ -55,6 +56,10 @@ def create_product(current_user_id):
 
         product = conn.execute("SELECT * FROM products WHERE id = ?",
                                (cursor.lastrowid,)).fetchone()
+        
+        # Firebase sync
+        check_and_sync_resource(current_user_id, "products", str(product["id"]), dict(product), conn)
+        
         return jsonify(dict(product)), 201
     finally:
         close_db(conn)
@@ -103,6 +108,11 @@ def update_product(current_user_id, product_id):
               data.get('unit', 'unit'), product_id, current_user_id))
         conn.commit()
 
+        # Firebase sync
+        product = conn.execute("SELECT * FROM products WHERE id = ?", (product_id,)).fetchone()
+        if product:
+            check_and_sync_resource(current_user_id, "products", str(product_id), dict(product), conn)
+
         return jsonify({'message': 'Product updated successfully'}), 200
     finally:
         close_db(conn)
@@ -118,6 +128,10 @@ def delete_product(current_user_id, product_id):
             (product_id, current_user_id)
         )
         conn.commit()
+        
+        # Firebase sync
+        check_and_sync_resource(current_user_id, "products", str(product_id), None, conn, delete=True)
+        
         return jsonify({'message': 'Product deleted successfully'}), 200
     finally:
         close_db(conn)

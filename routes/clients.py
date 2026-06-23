@@ -4,6 +4,7 @@ BillFlow Pro — Client Management Routes
 from flask import Blueprint, request, jsonify
 from database import get_db, close_db
 from routes.auth import token_required
+from firebase_sync import check_and_sync_resource
 
 clients_bp = Blueprint('clients', __name__, url_prefix='/api/clients')
 
@@ -61,6 +62,10 @@ def create_client(current_user_id):
 
         client = conn.execute("SELECT * FROM clients WHERE id = ?",
                               (cursor.lastrowid,)).fetchone()
+        
+        # Firebase sync
+        check_and_sync_resource(current_user_id, "clients", str(client["id"]), dict(client), conn)
+        
         return jsonify(dict(client)), 201
     finally:
         close_db(conn)
@@ -124,6 +129,11 @@ def update_client(current_user_id, client_id):
               data.get('notes', ''), client_id, current_user_id))
         conn.commit()
 
+        # Firebase sync
+        client = conn.execute("SELECT * FROM clients WHERE id = ?", (client_id,)).fetchone()
+        if client:
+            check_and_sync_resource(current_user_id, "clients", str(client_id), dict(client), conn)
+
         return jsonify({'message': 'Client updated successfully'}), 200
     finally:
         close_db(conn)
@@ -139,6 +149,10 @@ def delete_client(current_user_id, client_id):
             (client_id, current_user_id)
         )
         conn.commit()
+        
+        # Firebase sync (delete document on local soft-delete)
+        check_and_sync_resource(current_user_id, "clients", str(client_id), None, conn, delete=True)
+        
         return jsonify({'message': 'Client deleted successfully'}), 200
     finally:
         close_db(conn)

@@ -2,41 +2,54 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="BillFlow Pro — Premium Billing & Invoice Management System for Modern Businesses">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="description" content="BillFlow Pro — Premium Billing &amp; Invoice Management System for Modern Businesses">
+    <meta name="theme-color" content="#0a0a1a">
     <title>BillFlow Pro — Premium Billing System</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/style.css?v=4">
+    <link rel="stylesheet" href="/static/css/style.css?v=7">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
 
 
     <!-- Login Page -->
     <div id="login-page" class="login-page">
-        <div class="login-bg">
-            <div class="floating-orb orb-1"></div>
-            <div class="floating-orb orb-2"></div>
-            <div class="floating-orb orb-3"></div>
-        </div>
+        <!-- Animated background -->
+        <div class="login-bg"></div>
+        <canvas id="particles-canvas"></canvas>
+        <!-- Three.js 3D Canvas -->
+        <canvas id="three-canvas"></canvas>
+        <div class="floating-orb orb-1"></div>
+        <div class="floating-orb orb-2"></div>
+        <div class="floating-orb orb-3"></div>
+        <div class="floating-orb orb-4"></div>
+        <div class="floating-orb orb-5"></div>
         <div class="login-container">
             <div class="login-card">
                 <div class="login-header">
                     <div class="login-logo">
-                        <span class="logo-icon">⚡</span>
+                        <img src="/static/css/logo.png" alt="BillFlow Pro Logo" class="logo-img">
                         <h1>BillFlow <span class="gradient-text">Pro</span></h1>
                     </div>
-                    <p class="login-subtitle">Premium Billing & Invoice Management</p>
+                    <p class="login-subtitle">Premium Billing &amp; Invoice Management</p>
                 </div>
                 <form id="login-form" class="auth-form active">
                     <div class="form-group">
                         <label for="login-username">Username</label>
-                        <input type="text" id="login-username" placeholder="Enter your username" required>
+                        <input type="text" id="login-username" placeholder="Enter your username" required autocomplete="username">
                     </div>
-                    <div class="form-group">
+                    <div class="form-group password-group">
                         <label for="login-password">Password</label>
-                        <input type="password" id="login-password" placeholder="Enter your password" required>
+                        <div class="password-wrapper">
+                            <input type="password" id="login-password" placeholder="Enter your password" required autocomplete="current-password">
+                            <button type="button" class="pw-toggle" data-target="login-password" title="Toggle password visibility">
+                                <svg class="eye-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                <svg class="eye-off-icon hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                            </button>
+                        </div>
                     </div>
                     <button type="submit" class="btn btn-primary btn-full" id="login-btn">
                         <span>Sign In</span>
@@ -61,7 +74,13 @@
                     </div>
                     <div class="form-group">
                         <label for="reg-password">Password</label>
-                        <input type="password" id="reg-password" placeholder="Create a password (min 6 chars)" required>
+                        <div class="password-wrapper">
+                            <input type="password" id="reg-password" placeholder="Create a password (min 6 chars)" required autocomplete="new-password">
+                            <button type="button" class="pw-toggle" data-target="reg-password" title="Toggle password visibility">
+                                <svg class="eye-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                <svg class="eye-off-icon hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                            </button>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label for="reg-company">Company Name</label>
@@ -79,10 +98,11 @@
 
     <!-- Main App -->
     <div id="app" class="app-container hidden">
+        <div class="ambient-bg"></div>
         <aside id="sidebar" class="sidebar">
             <div class="sidebar-header">
                 <div class="sidebar-logo">
-                    <span class="logo-icon">⚡</span>
+                    <img src="/static/css/logo.png" alt="BillFlow Pro" class="logo-img logo-sm">
                     <span class="logo-text">BillFlow <span class="gradient-text">Pro</span></span>
                 </div>
             </div>
@@ -204,16 +224,17 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
-    <script src="/static/js/app.js?v=3"></script>
-    <script src="/static/js/chatbot.js?v=3"></script>
-    <script src="/static/js/pages/dashboard.js?v=3"></script>
-    <script src="/static/js/pages/invoices.js?v=3"></script>
-    <script src="/static/js/pages/clients.js?v=3"></script>
-    <script src="/static/js/pages/products.js?v=3"></script>
-    <script src="/static/js/pages/payments.js?v=3"></script>
-    <script src="/static/js/pages/expenses.js?v=3"></script>
-    <script src="/static/js/pages/reports.js?v=3"></script>
-    <script src="/static/js/pages/settings.js?v=3"></script>
-    <script src="/static/js/pages/calculator.js?v=3"></script>
+    <script src="/static/js/app.js?v=7"></script>
+    <script src="/static/js/motion.js?v=7"></script>
+    <script src="/static/js/chatbot.js?v=7"></script>
+    <script src="/static/js/pages/dashboard.js?v=4"></script>
+    <script src="/static/js/pages/invoices.js?v=4"></script>
+    <script src="/static/js/pages/clients.js?v=4"></script>
+    <script src="/static/js/pages/products.js?v=4"></script>
+    <script src="/static/js/pages/payments.js?v=4"></script>
+    <script src="/static/js/pages/expenses.js?v=4"></script>
+    <script src="/static/js/pages/reports.js?v=4"></script>
+    <script src="/static/js/pages/settings.js?v=4"></script>
+    <script src="/static/js/pages/calculator.js?v=4"></script>
 </body>
 </html>
