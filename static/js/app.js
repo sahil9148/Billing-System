@@ -47,15 +47,35 @@ const API = {
         this.user = null;
         localStorage.removeItem('token');
         localStorage.removeItem('user');
+        localStorage.removeItem('is_guest');
         window.location.hash = '';
-        showLogin();
+        initGuestSession();
     }
 };
+
+// --- Guest Session Initialization ---
+async function initGuestSession() {
+    try {
+        // Attempt silent login as admin/admin123 to load the default demo data
+        const data = await API.post('/api/auth/login', { username: 'admin', password: 'admin123' });
+        if (data) {
+            API.setAuth(data.token, data.user);
+            localStorage.setItem('is_guest', 'true');
+            showApp();
+        } else {
+            showLogin();
+        }
+    } catch (err) {
+        console.error('Silent guest login failed:', err);
+        showToast('Guest mode failed. Please sign in.', 'warning');
+        showLogin();
+    }
+}
 
 // --- Auth & Navigation ---
 function showLogin() {
     document.getElementById('login-page').classList.remove('hidden');
-    document.getElementById('app').classList.add('hidden');
+    document.getElementById('app').classList.remove('hidden'); // Keep main app visible in background
 }
 
 function showApp() {
@@ -66,11 +86,29 @@ function showApp() {
 }
 
 function updateUserUI() {
-    if (!API.user) return;
-    const name = API.user.full_name || API.user.username || 'User';
-    document.getElementById('sidebar-username').textContent = name;
-    document.getElementById('sidebar-avatar').textContent = name.charAt(0).toUpperCase();
-    document.getElementById('sidebar-role').textContent = API.user.role === 'admin' ? 'Administrator' : 'User';
+    const isGuest = localStorage.getItem('is_guest') === 'true';
+    const logoutBtn = document.getElementById('logout-btn');
+    const sidebarLoginBtn = document.getElementById('sidebar-login-btn');
+    const headerLoginBtn = document.getElementById('header-login-btn');
+
+    if (isGuest || !API.user) {
+        document.getElementById('sidebar-username').textContent = 'Guest User';
+        document.getElementById('sidebar-avatar').textContent = 'G';
+        document.getElementById('sidebar-role').textContent = 'Demo Access';
+        
+        if (logoutBtn) logoutBtn.classList.add('hidden');
+        if (sidebarLoginBtn) sidebarLoginBtn.classList.remove('hidden');
+        if (headerLoginBtn) headerLoginBtn.classList.remove('hidden');
+    } else {
+        const name = API.user.full_name || API.user.username || 'User';
+        document.getElementById('sidebar-username').textContent = name;
+        document.getElementById('sidebar-avatar').textContent = name.charAt(0).toUpperCase();
+        document.getElementById('sidebar-role').textContent = API.user.role === 'admin' ? 'Administrator' : 'User';
+        
+        if (logoutBtn) logoutBtn.classList.remove('hidden');
+        if (sidebarLoginBtn) sidebarLoginBtn.classList.add('hidden');
+        if (headerLoginBtn) headerLoginBtn.classList.add('hidden');
+    }
 }
 
 // --- Login ---
@@ -85,6 +123,7 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
     try {
         const data = await API.post('/api/auth/login', { username, password });
         if (data) {
+            localStorage.setItem('is_guest', 'false');
             API.setAuth(data.token, data.user);
             showToast(`Welcome back, ${data.user.full_name || 'User'}!`, 'success');
             showApp();
@@ -230,8 +269,34 @@ if (typeof Chart !== 'undefined') {
 
 // --- Init ---
 document.addEventListener('DOMContentLoaded', () => {
-    if (API.token && API.user) showApp();
-    else showLogin();
+    // Add close button event listener
+    const closeBtn = document.getElementById('login-close-btn');
+    if (closeBtn) {
+        closeBtn.addEventListener('click', () => {
+            showApp();
+        });
+    }
+
+    // Add login buttons event listeners
+    const sidebarLoginBtn = document.getElementById('sidebar-login-btn');
+    if (sidebarLoginBtn) {
+        sidebarLoginBtn.addEventListener('click', () => {
+            showLogin();
+        });
+    }
+
+    const headerLoginBtn = document.getElementById('header-login-btn');
+    if (headerLoginBtn) {
+        headerLoginBtn.addEventListener('click', () => {
+            showLogin();
+        });
+    }
+
+    if (API.token && API.user) {
+        showApp();
+    } else {
+        initGuestSession();
+    }
 });
 
 // --- Password Visibility Toggle ---

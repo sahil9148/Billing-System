@@ -145,13 +145,62 @@ a { color: var(--accent); text-decoration: none; }
    LOGIN PAGE
    ============================================ */
 .login-page {
-    min-height: 100vh;
+    position: fixed;
+    inset: 0;
+    z-index: 100;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: #0a0a0f;
-    position: relative;
+    background: rgba(8, 8, 12, 0.55);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
     overflow: hidden;
+}
+
+.login-close-btn {
+    position: absolute;
+    top: 16px;
+    right: 18px;
+    background: none;
+    border: none;
+    font-size: 16px;
+    color: var(--text-3);
+    cursor: pointer;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all var(--transition);
+    z-index: 20;
+}
+.login-close-btn:hover {
+    color: var(--text-1);
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.btn-login {
+    background: none;
+    border: none;
+    color: var(--text-3);
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 4px;
+    transition: all var(--transition);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+}
+.btn-login svg {
+    width: 18px;
+    height: 18px;
+}
+.btn-login:hover {
+    color: var(--accent);
+    background: rgba(79, 143, 247, 0.1);
 }
 
 .login-bg {
